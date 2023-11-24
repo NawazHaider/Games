@@ -1,14 +1,14 @@
 #! python3
 # singlePlayer.py - a module for single player mode of Car Race
 
-import pygame, os, time
+import pygame, os, time, random
 import carClass
 pygame.init()
 
 # check if level file exists
 if not os.path.exists('passed levels.txt'):
     pass_lvl_file = open('passed levels.txt', 'w')
-    pass_lvl_file.write('0')
+    pass_lvl_file.write('1')
     pass_lvl = 0
 
 # open and read passed levels
@@ -28,16 +28,12 @@ car_w = 70
 car_h = 140
 
 # car images
-car1 = pygame.image.load('car1.png')
-car1 = pygame.transform.scale(car1, (car_w, car_h))
+carList = []
+for i in range(14):
+    car = pygame.image.load(f'car{str(i+1)}.png')
+    car = pygame.transform.scale(car, (70, 140))
+    carList.append(car)
 
-car2 = pygame.image.load('car2.png')
-car2 = pygame.transform.scale(car2, (car_w, car_h))
-
-car3 = pygame.image.load('car3.png')
-car3 = pygame.transform.scale(car3, (car_w, car_h))
-
-carList = [car1, car2, car3]
 
 # function for displaying text
 font = pygame.font.Font(None, 80)
@@ -45,6 +41,7 @@ def displayText(gameWindow, text, colour, xy):
     screen_text = font.render(text, True, colour)
     gameWindow.blit(screen_text, xy)
 
+carN = 0
 # funtion for single player mode
 def singlePl_homescreen(gameWindow, background):
     # load images
@@ -61,6 +58,7 @@ def singlePl_homescreen(gameWindow, background):
     end = False
     pass_lvl_xy = []
     level = 0
+    carNotChosen = True
 
     # game loop
     while not end:
@@ -86,11 +84,13 @@ def singlePl_homescreen(gameWindow, background):
                                 if x == lx and y == ly:
                                     level = i + 1
                                 i += 1
-                            singlePl_game(gameWindow)
+                            if carNotChosen:
+                                carN = carClass.chooseCar(gameWindow, singleP=True)
+                                singlePl_game(gameWindow, carN)
+                                carNotChosen = False
 
         # display the background
         gameWindow.blit(level_bg, (0, 0))
-        carClass.chooseCar(gameWindow, singleP=True)
 
         # display the passed levels
         lvl_x = 70
@@ -118,11 +118,19 @@ def singlePl_homescreen(gameWindow, background):
         # update the window
         pygame.display.update()
         clock.tick(fps)
+    showCompCars(gameWindow)
     pygame.quit()
     quit()
 
+# function for displaying computer cars
+def showCompCars(gameWindow):
+    for i in range(5):
+        n = random.randint(0, len(carList)-1)
+        x = random.randint(80, 900)
+        comp_car = carClass.compCars(x, 500, carList[n])
+
 # function for singleplayer game
-def singlePl_game(gameWindow):
+def singlePl_game(gameWindow, carNumber):
     # load images
     track = pygame.image.load('track.png')
     track = pygame.transform.scale(track, (screen_w, screen_h)).convert_alpha()
@@ -144,8 +152,7 @@ def singlePl_game(gameWindow):
     track_y = 0
     tracks = [[0, track_y]]
     addTrack = True
-
-    car = carClass.player_car(car_x, car_y, car1)
+    car = carClass.player_car(car_x, car_y, carList[carNumber])
 
     # make an event for countdown
     countdown = pygame.USEREVENT + 1
@@ -153,8 +160,10 @@ def singlePl_game(gameWindow):
     countTime = time.time()
 
     # make an event for car acceleration
-    accel = pygame.USEREVENT + 1
+    accel = pygame.USEREVENT + 2
     pygame.time.set_timer(accel, 1000)
+
+    showCompCars(gameWindow)
 
     while not end:
         # loop specific variables
@@ -179,13 +188,33 @@ def singlePl_game(gameWindow):
                     end = True
                 
                 # check the pressed key
-                if event.key == pygame.K_w and time.time() - countTime > 5:
-                    car.moveForward = True
-                    car.acc = True
+                if time.time() - countTime > 5:
+                    if event.key == pygame.K_w:
+                        car.moveForward = True
+                        car.acc = True
+
+                    if car.carVel > 0:
+                        if event.key == pygame.K_d:
+                            car.t_right = True
+                            
+                        if event.key == pygame.K_a:
+                            car.t_left = True
+
+                        if event.key == pygame.K_s:
+                            car.retard = True
             
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_w:
                     car.acc = False
+                    
+                if event.key == pygame.K_d:
+                    car.t_right = False
+                    
+                if event.key == pygame.K_a:
+                    car.t_left = False
+
+                if event.key == pygame.K_s:
+                    car.retard = False
 
             # accerlerate the car
             if event.type == accel:
@@ -210,8 +239,13 @@ def singlePl_game(gameWindow):
             tracks.remove(tracks[0])
             addTrack = True
 
-        # display the car
+        # display the cars
         carClass.cars.update(gameWindow)
+        if time.time() - countTime > 5:
+            carClass.computerCars.update(gameWindow)
+        
+        
+        carClass.computerCars.update(gameWindow)
 
         # update the window
         pygame.display.update()
